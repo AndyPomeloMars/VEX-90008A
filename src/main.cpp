@@ -48,6 +48,9 @@ void drivercontrol(void) {
   int control_mode = 0; 
   const int NUM_CONTROL_MODES = 2; // 定义总共有两种控制模式
 
+  // 锁头
+  float locked_heading = 0.0;
+
   // 在手柄屏幕上初始化显示信息
   Controller.Screen.setCursor(2, 1);
   Controller.Screen.print("Mode: SPLIT ARCADE"); // 默认模式显示
@@ -72,9 +75,23 @@ void drivercontrol(void) {
         int right_stick_hor = std::abs(A1) < JOYSTICK_DEADZONE ? 0 : A1; // 读取右摇杆水平值作为转向动力
         if (is_reversed) // 如果处于反向模式
           left_stick_vec = -left_stick_vec; // 则将前进动力反向
+          
         // 使用标准街机公式计算左右轮动力
-        left_final_power = left_stick_vec + (right_stick_hor * turn_sensitivity);
-        right_final_power = left_stick_vec - (right_stick_hor * turn_sensitivity);
+        // left_final_power = left_stick_vec + (right_stick_hor * turn_sensitivity);
+        // right_final_power = left_stick_vec - (right_stick_hor * turn_sensitivity);
+
+        // 应用转向曲线 (三次函数)
+        // 1. 将转向值归一化到 [-1, 1]
+        float normalized_turn = right_stick_hor / 100.0;
+        // 2. 应用三次函数 (pow(x, 3))
+        float curved_turn = pow(normalized_turn, 3);
+        // 3. 将结果转换回 [-100, 100] 的范围
+        int final_turn_power = curved_turn * 100;
+
+        // 使用 final_turn_power 来计算 left_final_power 和 right_final_power
+        left_final_power = left_stick_vec + (final_turn_power * turn_sensitivity);
+        right_final_power = left_stick_vec - (final_turn_power * turn_sensitivity);
+
         break; // 结束模式0的处理
       }
       case 1: { // 模式 1: 全功能街机 (左摇杆前进 + 转向, 右摇杆也转向)
@@ -84,9 +101,23 @@ void drivercontrol(void) {
         int total_turn = left_stick_hor + right_stick_hor; // 将两个摇杆的转向输入相加
         if (is_reversed) // 如果处于反向模式
           left_stick_vec = -left_stick_vec; // 则将前进动力反向
+
         // 使用合并后的总转向动力来计算左右轮动力
-        left_final_power = left_stick_vec + (total_turn * turn_sensitivity);
-        right_final_power = left_stick_vec - (total_turn * turn_sensitivity);
+        // left_final_power = left_stick_vec + (total_turn * turn_sensitivity);
+        // right_final_power = left_stick_vec - (total_turn * turn_sensitivity);
+
+        // 应用转向曲线 (三次函数)
+        // 1. 将转向值归一化到 [-1, 1]
+        float normalized_turn = total_turn / 100.0;
+        // 2. 应用三次函数 (pow(x, 3))
+        float curved_turn = pow(normalized_turn, 3);
+        // 3. 将结果转换回 [-100, 100] 的范围
+        int final_turn_power = curved_turn * 100;
+
+        // 使用 final_turn_power 来计算 left_final_power 和 right_final_power
+        left_final_power = left_stick_vec + (final_turn_power * turn_sensitivity);
+        right_final_power = left_stick_vec - (final_turn_power * turn_sensitivity);
+
         break; // 结束模式1的处理
       }
     }
@@ -156,6 +187,7 @@ void drivercontrol(void) {
     // Y键：切换行驶方向
     if (Y && !last_Y) {
       is_reversed = !is_reversed; // 翻转方向状态
+      Controller.rumble("."); // 一个短促的点震动
       Controller.Screen.setCursor(3, 1); // 设置光标位置
       if (is_reversed) 
         Controller.Screen.print("Drive: REVERSED"); // 显示反向模式
@@ -176,6 +208,7 @@ void drivercontrol(void) {
 
     // 如果档位发生了变化，则更新手柄屏幕
     if (gear_changed) {
+      Controller.rumble("."); // 一个短促的点震动
       Controller.Screen.setCursor(4, 1);
       switch (speed_gear) {
         case 0: Controller.Screen.print("Speed: LOW   (%d%%)", GEAR_SPEEDS[0]); break;
@@ -189,6 +222,7 @@ void drivercontrol(void) {
     if (RIGHT && !last_RIGHT) { // RIGHT键：切换控制模式
       control_mode++; // 模式编号加1
       control_mode = control_mode % NUM_CONTROL_MODES; // 使用取模运算实现循环切换
+      Controller.rumble("."); // 一个短促的点震动
       Controller.Screen.setCursor(2, 1); // 设置光标
       switch (control_mode) { // 根据新模式更新屏幕显示
         case 0: Controller.Screen.print("Mode: SPLIT ARCADE"); break;
@@ -197,13 +231,16 @@ void drivercontrol(void) {
     }
     
     // 系统/调试功能
-    if (LEFT && RIGHT) // 同时按 LEFT 和 RIGHT：测试自动程序
+    if (LEFT && RIGHT){ // 同时按 LEFT 和 RIGHT：测试自动程序
+      Controller.rumble("."); // 一个短促的点震动
       autonomous();
+    }
 
     if (LEFT && A) { // 同时按 LEFT 和 A：校准IMU
       IMU.startCalibration();
       while (IMU.isCalibrating()) 
         this_thread::sleep_for(5);
+      Controller.rumble("."); // 一个短促的点震动
       Controller.Screen.setCursor(5, 1);
       Controller.Screen.print("%19s", "IMU Ready!");
     }
@@ -211,6 +248,7 @@ void drivercontrol(void) {
     if (LEFT && A1 > 80) { // 同时按 LEFT 和推动右摇杆：选择自动赛策略
       this_thread::sleep_for(300);
       auton_strategy = (auton_strategy + 1) % 2;
+      Controller.rumble("."); // 一个短促的点震动
       Controller.Screen.setCursor(5, 1);
       if (auton_strategy == 0) 
         Controller.Screen.print("%12s", "left");
