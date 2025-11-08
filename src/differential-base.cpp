@@ -7,6 +7,11 @@
 #include "robot-config.h"
 #include "vex.h"
 
+// 宏定义：计算单侧轮组行驶的距离 (单位：毫米 mm)
+// 1. (Motor_BaseLF.position(deg) + ... ) / 3.0: 计算单侧三个电机编码器的平均旋转角度。
+// 2. * 69.85 * M_PI: 乘以轮子周长 (直径 * PI)，将旋转圈数转换为线性距离。
+// 3. / 360.0: 将角度转换为圈数。
+// 4. * 0.75: 一个修正系数，用于校准因轮子打滑、负载等原因造成的实际误差。
 #define left_pos                                             \
   (Motor_BaseLF.position(deg) + Motor_BaseLM.position(deg) + \
    Motor_BaseLB.position(deg)) /                             \
@@ -15,163 +20,136 @@
   (Motor_BaseRF.position(deg) + Motor_BaseRM.position(deg) + \
    Motor_BaseRB.position(deg)) /                             \
       3.0 * 69.85 * M_PI / 360.0 * 0.75
+
+// 宏定义：获取IMU惯性传感器的旋转角度
+// IMU.rotation() 是原始读数，除以一个校准常数 IMU_10 再乘以 3600 可能是为了将其转换为特定单位或进行校准。
 #define heading IMU.rotation() / IMU_10 * 3600;
+
+// 静态全局变量，用于存储上一次重置时的位置读数，以便计算相对位移
 static float left_pos_last = 0, right_pos_last = 0;
 
-/**
- * return the position of left side of base (mm from last reset position)
- * according to encoder value
- * @return return mm
- */
+// 传感器与状态获取
+// 获取左侧轮组自上次重置以来的行驶距离 (mm)。
 float getLeftPos() { return left_pos - left_pos_last; }
-/**
- * return the position of right side of base (mm from last reset position)
- * according to encoder value
- * @return return mm
- */
+// 获取右侧轮组自上次重置以来的行驶距离 (mm)。
 float getRightPos() { return right_pos - right_pos_last; }
-/**
- * return the vertical position of base (mm from last reset position) according
- * to encoder value
- * @return return mm
- */
+// 获取机器人中心自上次重置以来的前进距离 (mm)，即左右两侧的平均值。
 float getForwardPos() { return (getLeftPos() + getRightPos()) / 2; }
-/**
- * reset encoder on the left side of the base
- */
+// 将左侧轮组的当前位置记为新的零点。
 void resetLeftPos() { left_pos_last = left_pos; }
-/**
- * reset encoder on the right side of the base
- */
+// 将右侧轮组的当前位置记为新的零点。
 void resetRightPos() { right_pos_last = right_pos; }
-/**
- * reset encoders on both side of the base
- */
+// 将两侧轮组的当前位置都记为新的零点。
 void resetForwardPos() {
   resetLeftPos();
   resetRightPos();
 }
-/**
- * return the heading angle of robot in deg (+360 after a full clockwise turn,
- * -360 after a counter-clockwise turn)
- * @return float with 1 decimal point
- */
+
+// 获取机器人当前的绝对朝向角度 (单位：度)。
+// 顺时针为正，逆时针为负，会累加超过360度。
 float getHeading() { return heading; }
-/**
- * powers all motors on left side of base with duty cycle _input%
- * @param _input ranges from -100 : 100
- */
+
+// 底层电机控制
+// 以指定的功率百分比驱动左侧所有电机
 void moveLeft(float _input) {
   if (fabs(_input) > 100) _input = getSign(_input) * 100;
+  // 使用电压控制模式，将百分比(-100~100)乘以127，转换为毫伏(mV)单位的电压值(近似-12700mV~12700mV)
   Motor_BaseLF.spin(directionType::fwd, (int)127 * _input, voltageUnits::mV);
   Motor_BaseLM.spin(directionType::fwd, (int)127 * _input, voltageUnits::mV);
   Motor_BaseLB.spin(directionType::fwd, (int)127 * _input, voltageUnits::mV);
 }
-/**
- * move left motors with speed feedback control
- * @param _input ranges from -100 : 100
- */
+// 以指定的速度百分比驱动左侧所有电机 (使用电机内置的速度单位)
 void moveLeftVel(float _input) {
   if (fabs(_input) > 100) _input = getSign(_input) * 100;
   Motor_BaseLF.spin(directionType::fwd, (int)_input, velocityUnits::pct);
   Motor_BaseLM.spin(directionType::fwd, (int)_input, velocityUnits::pct);
   Motor_BaseLB.spin(directionType::fwd, (int)_input, velocityUnits::pct);
 }
-/**
- * locks all motors on left side of base
- */
+// 锁定左侧所有电机 (hold模式，电机将抵抗外力保持位置)
 void lockLeft(void) {
   Motor_BaseLF.stop(vex::brakeType::hold);
   Motor_BaseLM.stop(vex::brakeType::hold);
   Motor_BaseLB.stop(vex::brakeType::hold);
 }
-/**
- * unlocks all motors on left side of base
- */
+// 解锁左侧所有电机 (coast模式，电机停止后可自由转动)
 void unlockLeft(void) {
   Motor_BaseLF.stop(vex::brakeType::coast);
   Motor_BaseLM.stop(vex::brakeType::coast);
   Motor_BaseLB.stop(vex::brakeType::coast);
 }
-/**
- * powers all motors on right side of base with duty cycle _input%
- * @param _input ranges from -100 : 100
- */
+
+// 以指定的功率百分比驱动右侧所有电机。
 void moveRight(float _input) {
   if (fabs(_input) > 100) _input = getSign(_input) * 100;
   Motor_BaseRF.spin(directionType::fwd, (int)127 * _input, voltageUnits::mV);
   Motor_BaseRM.spin(directionType::fwd, (int)127 * _input, voltageUnits::mV);
   Motor_BaseRB.spin(directionType::fwd, (int)127 * _input, voltageUnits::mV);
 }
-/**
- * move right motors with speed feedback control
- * @param _input ranges from -100 : 100
- */
+// 以指定的速度百分比驱动右侧所有电机 (使用电机内置的速度单位)。
 void moveRightVel(float _input) {
-  // _input ranges from -100 : 100
-  // powers all motors on right side of base with duty cycle _input%
   if (fabs(_input) > 100) _input = getSign(_input) * 100;
   Motor_BaseRF.spin(directionType::fwd, (int)_input, velocityUnits::pct);
   Motor_BaseRM.spin(directionType::fwd, (int)_input, velocityUnits::pct);
   Motor_BaseRB.spin(directionType::fwd, (int)_input, velocityUnits::pct);
 }
-/**
- * locks all motors on right side of base
- */
+// 锁定右侧所有电机 (hold模式)。
 void lockRight(void) {
   Motor_BaseRF.stop(vex::brakeType::hold);
   Motor_BaseRM.stop(vex::brakeType::hold);
   Motor_BaseRB.stop(vex::brakeType::hold);
 }
-/**
- * unlocks all motors on right side of base
- */
+// 解锁右侧所有电机 (coast模式)。
 void unlockRight(void) {
   Motor_BaseRF.stop(vex::brakeType::coast);
   Motor_BaseRM.stop(vex::brakeType::coast);
   Motor_BaseRB.stop(vex::brakeType::coast);
 }
-/**
- * move forward with _input% power
- * @param _input ranges from -100 : 100
- */
+
+// 高层组合控制
+// 让底盘以指定功率前进或后退 (两侧轮子同速同向)
 void moveForward(float _input) {
   moveLeft(_input);
   moveRight(_input);
 }
-/**
- * rotate clockwise with _input% power
- * @param _input ranges from -100 : 100
- */
+// 让底盘以指定功率顺时针旋转 (两侧轮子同速反向)
 void moveClockwise(float _input) {
   moveLeft(_input);
   moveRight(-_input);
 }
-/**
- * stop the base with hold mode
- */
+// 锁定整个底盘 (刹车模式)。
 void lockBase(void) {
   lockLeft();
   lockRight();
 }
-/**
- * stop the base with coast mode
- */
+// 解锁整个底盘 (滑行模式)。
 void unlockBase(void) {
   unlockLeft();
   unlockRight();
 }
-/**
- * move forward with voltage change linearly
- */
-void softStartTimerForward(float _power_init, float _power_final,
-                           int _duration) {
+
+// 使用街机模式（单摇杆或双摇杆组合）控制底盘移动
+// turn_sensitivity 转向灵敏度系数，用于调整转向的快慢
+void arcadeControl(int forward_axis, int turn_axis, float turn_sensitivity = 0.5) {
+  // 计算左右两侧轮子的最终速度
+  // 前进/后退是基础速度，转向是在这个基础上进行加减
+  int left_power = forward_axis + (turn_axis * turn_sensitivity);
+  int right_power = forward_axis - (turn_axis * turn_sensitivity);
+
+  // 调用底层函数来驱动电机
+  moveLeft(left_power);
+  moveRight(right_power);
+}
+
+// 自动程序动作模块
+// 前进/后退动作
+// 在指定时间内，让前进功率从初始值线性增加/减少到最终值 (软启动/停止)
+void softStartTimerForward(float _power_init, float _power_final, int _duration) {
   auto timer = MyTimer();
   float step = (_power_final - _power_init) / _duration;
   float error = 0, feedback = 0;
   float direction = getHeading();
   while (timer.getTime() < _duration) {
-    error = getHeading() - direction;
+    error = getHeading() - direction; // 计算航向误差
     feedback = error * 0.0;
     feedback = fabs(feedback) > 20 ? 20 * getSign(feedback) : feedback;
     float power = _power_init + timer.getTime() * step;
@@ -181,29 +159,23 @@ void softStartTimerForward(float _power_init, float _power_final,
   }
   unlockBase();
 }
-/**
- * forward with certain voltage in a period
- */
+// 以固定功率前进指定时间，并进行简单的航向保持。
 void timerForward(float _power, int _duration) {
   auto timer = MyTimer();
   float error = 0, feedback = 0;
   float direction = getHeading();
   while (timer.getTime() < _duration) {
     error = getHeading() - direction;
-    feedback = error * 2.0;
-    feedback = fabs(feedback) > fabs(_power) * 0.15
-                   ? fabs(_power) * 0.15 * getSign(feedback)
-                   : feedback;
+    feedback = error * 2.0; // P控制器修正航向
+    // 限制修正量的最大值，防止过度转向
+    feedback = fabs(feedback) > fabs(_power) * 0.15 ? fabs(_power) * 0.15 * getSign(feedback) : feedback;
     moveRight(_power + feedback);
     moveLeft(_power - feedback);
     this_thread::sleep_for(5);
   }
   unlockBase();
 }
-/**
- * forward with timer
- * @param _heading relative to current heading, if want a absolute heading degrees, for example 90 degrees, use "90 - getHeading()"
- */
+// 以固定功率前进指定时间，并转向指定的相对角度
 void timerForward(float _power, int _duration, float _heading) {
   auto timer = MyTimer();
   float error = 0, feedback = 0;
@@ -211,33 +183,23 @@ void timerForward(float _power, int _duration, float _heading) {
   while (timer.getTime() < _duration) {
     error = getHeading() - direction - _heading;
     feedback = error * 2.0;
-    feedback = fabs(feedback) > fabs(_power) * 0.20
-                   ? fabs(_power) * 0.20 * getSign(feedback)
-                   : feedback;
+    feedback = fabs(feedback) > fabs(_power) * 0.20 ? fabs(_power) * 0.20 * getSign(feedback) : feedback;
     moveRight(_power + feedback);
     moveLeft(_power - feedback);
     this_thread::sleep_for(5);
   }
   unlockBase();
 }
-/**
- * forward with timer and distance, with heading control
- * @param _heading relative to current heading, if want a absolute heading degrees, for example 90 degrees, use "90 - getHeading()"
- * @param _distance distance relative to current position
- */
-void timerForward(float _power, int _duration, float _heading,
-                  float _distance) {
+// 前进，直到达到指定时间或指定距离，以先到者为准，同时保持航向
+void timerForward(float _power, int _duration, float _heading, float _distance) {
   auto timer = MyTimer();
   float error = 0, feedback = 0;
   float direction = getHeading();
   float distance = getForwardPos();
-  while (timer.getTime() < _duration &&
-         fabs(getForwardPos() - distance) < fabs(_distance)) {
+  while (timer.getTime() < _duration && fabs(getForwardPos() - distance) < fabs(_distance)) {
     error = getHeading() - direction - _heading;
     feedback = error * 2.0;
-    feedback = fabs(feedback) > fabs(_power) * 0.20
-                   ? fabs(_power) * 0.20 * getSign(feedback)
-                   : feedback;
+    feedback = fabs(feedback) > fabs(_power) * 0.20 ? fabs(_power) * 0.20 * getSign(feedback) : feedback;
     moveRight(_power + feedback);
     moveLeft(_power - feedback);
     this_thread::sleep_for(5);
@@ -245,6 +207,7 @@ void timerForward(float _power, int _duration, float _heading,
   unlockBase();
 }
 
+// (基于编码器) 前进或后退指定的相对距离
 void posForwardRel(float _power, float _target) {
   float start = getForwardPos();
   float error = 0, feedback = 0;
@@ -253,16 +216,14 @@ void posForwardRel(float _power, float _target) {
   while (fabs(getForwardPos() - start) < fabs(_target)) {
     error = getHeading() - direction;
     feedback = error * 3.0;
-    feedback = fabs(feedback) > fabs(_power) * 0.1
-                   ? fabs(_power) * 0.1 * getSign(feedback)
-                   : feedback;
+    feedback = fabs(feedback) > fabs(_power) * 0.1 ? fabs(_power) * 0.1 * getSign(feedback) : feedback;
     moveRight(power + feedback);
     moveLeft(power - feedback);
     this_thread::sleep_for(5);
   }
   unlockBase();
 }
-
+// (基于编码器) 前进或后退指定的相对距离，并转向指定的相对角度
 void posForwardRel(float _power, float _target, float _heading) {
   float start = getForwardPos();
   float error = 0, feedback = 0;
@@ -271,32 +232,33 @@ void posForwardRel(float _power, float _target, float _heading) {
   while (fabs(getForwardPos() - start) < fabs(_target)) {
     error = getHeading() - direction - _heading;
     feedback = error * 3.0;
-    feedback = fabs(feedback) > fabs(_power) * 0.2
-                   ? fabs(_power) * 0.2 * getSign(feedback)
-                   : feedback;
+    feedback = fabs(feedback) > fabs(_power) * 0.2 ? fabs(_power) * 0.2 * getSign(feedback) : feedback;
     moveRight(power + feedback);
     moveLeft(power - feedback);
     this_thread::sleep_for(5);
   }
   unlockBase();
 }
-
+// (基于编码器) 前进或后退到指定的绝对位置
 void posForwardAbs(float _power, float _target) {
   resetForwardPos();
   float target_rel = _target - getForwardPos();
   posForwardRel(_power, target_rel);
 }
-
+// (基于编码器) 前进或后退到指定的绝对位置，并转向指定的相对角度
 void posForwardAbs(float _power, float _target, float _heading) {
   float target_rel = _target - getForwardPos();
   posForwardRel(_power, target_rel, _heading);
 }
 
-void pidForwardRel(float _target) { pidForwardAbs(getForwardPos() + _target); }
+// (基于PID) 前进或后退指定的相对距离
+void pidForwardRel(float _target) {
+  pidForwardAbs(getForwardPos() + _target);
+}
+// (基于PID) 前进或后退到指定的绝对位置，使用默认PID系数
 void pidForwardAbs(float _target) {
   auto pid = PID();
-  pid.setCoefficient(BASE_FORWARD_PID[0], BASE_FORWARD_PID[1],
-                     BASE_FORWARD_PID[2]);
+  pid.setCoefficient(BASE_FORWARD_PID[0], BASE_FORWARD_PID[1], BASE_FORWARD_PID[2]);
   pid.setTarget(_target);
   pid.setIMax(20);
   pid.setIRange(5);
@@ -311,14 +273,13 @@ void pidForwardAbs(float _target) {
   }
   unlockBase();
 }
-
+// (基于PID) 前进或后退到指定的绝对位置，并转向指定的相对角度
 void pidForwardAbs(float _target, float _heading) {
   auto pid = PID();
   MyTimer timer;
   float error = 0, feedback = 0;
   float direction = getHeading();
-  pid.setCoefficient(BASE_FORWARD_PID[0], BASE_FORWARD_PID[1],
-                     BASE_FORWARD_PID[2]);
+  pid.setCoefficient(BASE_FORWARD_PID[0], BASE_FORWARD_PID[1], BASE_FORWARD_PID[2]);
   pid.setTarget(_target);
   pid.setIMax(20);
   pid.setIRange(5);
@@ -336,6 +297,7 @@ void pidForwardAbs(float _target, float _heading) {
   }
   unlockBase();
 }
+// (基于PID) 前进或后退到指定的绝对位置，使用自定义PID系数
 void pidForwardAbs(float _target, float _kp, float _ki, float _kd) {
   auto pid = PID();
   MyTimer timer;
@@ -356,8 +318,9 @@ void pidForwardAbs(float _target, float _kp, float _ki, float _kd) {
   unlockBase();
 }
 
-void softStartTimerRotate(float _power_init, float _power_final,
-                          int _duration) {
+// 转向动作
+// 在指定时间内，让转向功率从初始值线性增加/减少到最终值
+void softStartTimerRotate(float _power_init, float _power_final, int _duration) {
   auto timer = MyTimer();
   float step = (_power_final - _power_init) / _duration;
   while (timer.getTime() < _duration) {
@@ -367,18 +330,18 @@ void softStartTimerRotate(float _power_init, float _power_final,
   resetForwardPos();
   unlockBase();
 }
-
+// 以固定功率转向指定的时间
 void timerRotate(float _power, int _duration) {
   moveClockwise(_power);
   this_thread::sleep_for(_duration);
   resetForwardPos();
   unlockBase();
 }
-
+// (基于IMU) 转向指定的相对角度
 void angleRotateRel(float _power, float _target) {
   angleRotateAbs(_power, getHeading() + _target);
 }
-
+// (基于IMU) 转向指定的绝对角度 (简易版，无PID)
 void angleRotateAbs(float _power, float _target) {
   while (fabs(_target - getHeading()) > 180) {
     if (_target - getHeading() > 0)
@@ -390,19 +353,20 @@ void angleRotateAbs(float _power, float _target) {
   float power = getSign(_target - getHeading()) * fabs(_power);
   float target = fabs(_target - getHeading());
   moveClockwise(power);
-  while (fabs(getHeading() - start) < target) {
+  while (fabs(getHeading() - start) < target)
     this_thread::sleep_for(5);
-  }
   resetForwardPos();
   unlockBase();
 }
 
-void pidRotateRel(float _target) { pidRotateAbs(getHeading() + _target); }
-
+// (基于PID) 转向指定的相对角度
+void pidRotateRel(float _target) {
+  pidRotateAbs(getHeading() + _target);
+}
+// (基于PID) 转向指定的绝对角度，使用默认PID系数
 void pidRotateAbs(float _target) {
   auto pid = PID();
   MyTimer timer;
-  // data transfer to prevend from huge angle rotation
   while (fabs(_target - getHeading()) > 180) {
     if (_target - getHeading() > 0)
       _target -= 360;
@@ -411,14 +375,13 @@ void pidRotateAbs(float _target) {
   }
   pid.setTarget(_target);
   pid.setIMax(15);
-  pid.setIRange(10);  // use if sentance to define the I coeff
+  pid.setIRange(10);
   pid.setErrorTolerance(1);
   pid.setDTolerance(20);
   pid.setJumpTime(40);
   timer.reset();
   while (!pid.targetArrived() && timer.getTime() < 1000) {
-    pid.setCoefficient(BASE_ROTATE_PID[0], BASE_ROTATE_PID[1],
-                       BASE_ROTATE_PID[2]);
+    pid.setCoefficient(BASE_ROTATE_PID[0], BASE_ROTATE_PID[1], BASE_ROTATE_PID[2]);
     pid.update(getHeading());
     moveClockwise(pid.getOutput());
     this_thread::sleep_for(5);
@@ -426,10 +389,10 @@ void pidRotateAbs(float _target) {
   resetForwardPos();
   unlockBase();
 }
+// (基于PID) 转向指定的绝对角度，使用自定义误差容忍度
 void pidRotateAbs(float _target, float _error_tolerance) {
   auto pid = PID();
   MyTimer timer;
-  // data transfer to prevend from huge angle rotation
   while (fabs(_target - getHeading()) > 180) {
     if (_target - getHeading() > 0)
       _target -= 360;
@@ -438,14 +401,13 @@ void pidRotateAbs(float _target, float _error_tolerance) {
   }
   pid.setTarget(_target);
   pid.setIMax(15);
-  pid.setIRange(10);  // use if sentance to define the I coeff
+  pid.setIRange(10);
   pid.setErrorTolerance(_error_tolerance);
   pid.setDTolerance(20);
   pid.setJumpTime(40);
   timer.reset();
   while (!pid.targetArrived() && timer.getTime() < 1000) {
-    pid.setCoefficient(BASE_ROTATE_PID[0], BASE_ROTATE_PID[1],
-                       BASE_ROTATE_PID[2]);
+    pid.setCoefficient(BASE_ROTATE_PID[0], BASE_ROTATE_PID[1], BASE_ROTATE_PID[2]);
     pid.update(getHeading());
     moveClockwise(pid.getOutput());
     this_thread::sleep_for(5);
@@ -453,10 +415,10 @@ void pidRotateAbs(float _target, float _error_tolerance) {
   resetForwardPos();
   unlockBase();
 }
+// (基于PID) 转向指定的绝对角度，使用自定义PID系数
 void pidRotateAbs(float _target, float _kp, float _ki, float _kd) {
   auto pid = PID();
   MyTimer timer;
-  // data transfer to prevend from huge angle rotation
   while (fabs(_target - getHeading()) > 180) {
     if (_target - getHeading() > 0)
       _target -= 360;
@@ -465,7 +427,7 @@ void pidRotateAbs(float _target, float _kp, float _ki, float _kd) {
   }
   pid.setTarget(_target);
   pid.setIMax(15);
-  pid.setIRange(10);  // use if sentance to define the I coeff
+  pid.setIRange(10);
   pid.setErrorTolerance(1);
   pid.setDTolerance(20);
   pid.setJumpTime(40);
@@ -479,9 +441,9 @@ void pidRotateAbs(float _target, float _kp, float _ki, float _kd) {
   resetForwardPos();
   unlockBase();
 }
-/**
- * move with different speed of each wheel
- */
+
+// 曲线动作
+// 让左右轮以不同速度行驶指定时间，从而实现走弧线
 void timerCurve(float left_power, float right_power, float _duration, bool _mirror_flag) {
   if(_mirror_flag) {
     moveLeft(left_power);
@@ -493,59 +455,4 @@ void timerCurve(float left_power, float right_power, float _duration, bool _mirr
   }
   this_thread::sleep_for(_duration);
   unlockBase();
-}
-/**
- * this is shit
- */
-void PIDPosCurveRel(float left_target, float right_target, float tolerance) {
-  // move curved to _target position
-  // stops base when finishing
-  float _target = (left_target + right_target) / 2;
-  float ratio = left_target / right_target;
-  auto pid = PID();
-  float k = 1;
-  pid.setCoefficient(1.05, 0.05, 1.5);
-  pid.setTarget(_target);
-  pid.setIMax(30);
-  pid.setIRange(20);
-  pid.setErrorTolerance(tolerance);
-  pid.setDTolerance(5);
-  pid.setJumpTime(50);
-  while (!pid.targetArrived()) {
-    float leftPos_err =
-        (getForwardPos() / _target) * left_target - getLeftPos();
-    float rightPos_err =
-        (getForwardPos() / _target) * right_target - getRightPos();
-    pid.update(getForwardPos());
-    float PIDoutput = pid.getOutput();
-    if (fabs(PIDoutput) > 90) PIDoutput = getSign(PIDoutput) * 90;
-    if (ratio > 1) {
-      moveLeft(PIDoutput + k * leftPos_err);
-      moveRight(PIDoutput / ratio + k * rightPos_err);
-    } else {
-      moveLeft(pid.getOutput() * ratio + k * leftPos_err);
-      moveRight(pid.getOutput() + k * rightPos_err);
-    }
-    this_thread::sleep_for(5);
-  }
-  resetForwardPos();
-  unlockBase();
-}
-/**
- * this is shit also
- */
-void PIDPosCurveAbs(float left_target, float right_target, float tolerance) {
-  PIDPosCurveRel(getLeftPos() + left_target, getRightPos() + right_target,
-                 tolerance);
-}
-
-void arcadeControl(int forward_axis, int turn_axis, float turn_sensitivity = 0.5) {
-  // 计算左右两侧轮子的最终速度
-  // 前进/后退是基础速度，转向是在这个基础上进行加减
-  int left_power = forward_axis + (turn_axis * turn_sensitivity);
-  int right_power = forward_axis - (turn_axis * turn_sensitivity);
-
-  // 调用底层函数来驱动电机
-  moveLeft(left_power);
-  moveRight(right_power);
 }

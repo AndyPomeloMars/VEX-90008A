@@ -45,8 +45,6 @@ void pidRotateAbs(float _target, float _kp, float _ki, float _kd);
 
 void timerCurve(float _left_power, float _right_power, float _duration,
                 bool _mirror_flag = 1);
-void PIDPosCurveRel(float left_target, float right_target, float tolerance = 2);
-void PIDPosCurveAbs(float left_target, float right_target, float tolerance = 2);
 
 void arcadeControl(int forward_axis, int turn_axis, float turn_sensitivity);
 

@@ -15,6 +15,10 @@ competition Competition;
 
 static int auton_strategy = 0; // 0 代表左侧场地，1 代表右侧场地
 const float turn_sensitivity = 0.7; // 转向灵敏度
+const int GEAR_SPEEDS[] = {10, 40, 70, 100}; // 定义四个档位各自对应的最大速度百分比
+const int NUM_GEARS = 4; // 定义档位的总数
+const int NUM_CONTROL_MODES = 2; // 定义总共有两种控制模式
+const int NUM_STICKCURVE = 5; // 定义摇杆曲线
 
 // 自动赛选择函数
 // 该函数在比赛的自动阶段被调用。它会根据全局变量 auton_strategy 的值，来决定执行哪一套预先编写好的自动程序
@@ -35,10 +39,6 @@ void drivercontrol(void) {
   int intake_offset = 0; // 进球机构偏移量，可能用于协同动作或视觉效果
   int change_state = 0; // 翻转/传送机构的状态变量
   int piston_up_state = 0; // 上升气缸的状态变量，用于实现开关式控制
-
-  // 定义档位速度
-  const int GEAR_SPEEDS[] = {10, 40, 70, 100}; // 定义四个档位各自对应的最大速度百分比
-  const int NUM_GEARS = 4; // 定义档位的总数
   
   // 添加状态变量
   bool is_reversed = false; // 记录行驶方向是否反转，false为正常，true为反转
@@ -46,7 +46,9 @@ void drivercontrol(void) {
 
   // 控制模式状态变量，0为分离街机, 1为全功能街机)
   int control_mode = 0; 
-  const int NUM_CONTROL_MODES = 2; // 定义总共有两种控制模式
+
+  // 摇杆曲线
+  int stick_curve = 1; // 记录当前摇杆曲线，默认为二次函数
 
   // 锁头
   float locked_heading = 0.0;
@@ -80,11 +82,11 @@ void drivercontrol(void) {
         // left_final_power = left_stick_vec + (right_stick_hor * turn_sensitivity);
         // right_final_power = left_stick_vec - (right_stick_hor * turn_sensitivity);
 
-        // 应用转向曲线 (三次函数)
+        // 应用摇杆曲线
         // 1. 将转向值归一化到 [-1, 1]
         float normalized_turn = right_stick_hor / 100.0;
-        // 2. 应用三次函数 (pow(x, 3))
-        float curved_turn = pow(normalized_turn, 3);
+        // 2. 应用摇杆曲线 (pow(x, 3))
+        float curved_turn = pow(normalized_turn, stick_curve + 1);
         // 3. 将结果转换回 [-100, 100] 的范围
         int final_turn_power = curved_turn * 100;
 
@@ -106,11 +108,11 @@ void drivercontrol(void) {
         // left_final_power = left_stick_vec + (total_turn * turn_sensitivity);
         // right_final_power = left_stick_vec - (total_turn * turn_sensitivity);
 
-        // 应用转向曲线 (三次函数)
+        // 应用摇杆曲线
         // 1. 将转向值归一化到 [-1, 1]
         float normalized_turn = total_turn / 100.0;
-        // 2. 应用三次函数 (pow(x, 3))
-        float curved_turn = pow(normalized_turn, 3);
+        // 2. 应用摇杆曲线
+        float curved_turn = pow(normalized_turn, stick_curve + 1);
         // 3. 将结果转换回 [-100, 100] 的范围
         int final_turn_power = curved_turn * 100;
 
@@ -229,10 +231,21 @@ void drivercontrol(void) {
         case 1: Controller.Screen.print("Mode: FULL ARCADE "); break;
       }
     }
+
+    // 摇杆曲线设置
+    if (LEFT && !last_LEFT) { // LEFT键：切换摇杆曲线
+      stick_curve++;
+      stick_curve = stick_curve % NUM_STICKCURVE;
+      Controller.rumble("."); // 一个短促的点震动
+      Controller.Screen.setCursor(5, 1);
+      Controller.Screen.print("%19s", "Stick Curve: %2f", stick_curve + 1);
+    }
     
     // 系统/调试功能
     if (LEFT && RIGHT){ // 同时按 LEFT 和 RIGHT：测试自动程序
       Controller.rumble("."); // 一个短促的点震动
+      Controller.Screen.setCursor(5, 1);
+      Controller.Screen.print("%19s", "Test Autonomous");
       autonomous();
     }
 
@@ -279,7 +292,6 @@ int main() {
   // 这通常用于处理一些需要并行运行的任务，如更新手柄屏幕或复杂的传感器数据处理，以免阻塞主循环
   thread ThreadController(defineController);
 
-  while (true) {
+  while (true)
     this_thread::sleep_for(100); // 线程休眠
-  }
 }

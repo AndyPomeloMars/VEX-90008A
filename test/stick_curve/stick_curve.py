@@ -20,7 +20,7 @@ for p in range(1, 6):
 
     plt.grid()
 
-    plt.savefig(f"stick_curve{p}.png", dpi=300)
+    plt.savefig(f"stick_curve{p}.png", dpi=500)
 
     plt.close()
 
