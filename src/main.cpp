@@ -14,11 +14,10 @@ using namespace vex;
 competition Competition;
 
 static int auton_strategy = 0; // 0 代表左侧场地，1 代表右侧场地
-const float turn_sensitivity = 0.7; // 转向灵敏度
+const float turn_sensitivity = 0.5; // 转向灵敏度
 const int GEAR_SPEEDS[] = {10, 40, 70, 100}; // 定义四个档位各自对应的最大速度百分比
 const int NUM_GEARS = 4; // 定义档位的总数
 const int NUM_CONTROL_MODES = 2; // 定义总共有两种控制模式
-const int NUM_STICKCURVE = 5; // 定义摇杆曲线
 
 // 自动赛选择函数
 // 该函数在比赛的自动阶段被调用。它会根据全局变量 auton_strategy 的值，来决定执行哪一套预先编写好的自动程序
@@ -48,7 +47,7 @@ void drivercontrol(void) {
   int control_mode = 0; 
 
   // 摇杆曲线
-  int stick_curve = 1; // 记录当前摇杆曲线，默认为二次函数
+  int stick_curve = 3; // 记录当前摇杆曲线，默认为三次函数
 
   // 锁头
   float locked_heading = 0.0;
@@ -85,8 +84,8 @@ void drivercontrol(void) {
         // 应用摇杆曲线
         // 1. 将转向值归一化到 [-1, 1]
         float normalized_turn = right_stick_hor / 100.0;
-        // 2. 应用摇杆曲线 (pow(x, 3))
-        float curved_turn = pow(normalized_turn, stick_curve + 1);
+        // 2. 应用摇杆曲线
+        float curved_turn = pow(normalized_turn, stick_curve);
         // 3. 将结果转换回 [-100, 100] 的范围
         int final_turn_power = curved_turn * 100;
 
@@ -112,7 +111,7 @@ void drivercontrol(void) {
         // 1. 将转向值归一化到 [-1, 1]
         float normalized_turn = total_turn / 100.0;
         // 2. 应用摇杆曲线
-        float curved_turn = pow(normalized_turn, stick_curve + 1);
+        float curved_turn = pow(normalized_turn, stick_curve);
         // 3. 将结果转换回 [-100, 100] 的范围
         int final_turn_power = curved_turn * 100;
 
@@ -230,15 +229,6 @@ void drivercontrol(void) {
         case 0: Controller.Screen.print("Mode: SPLIT ARCADE"); break;
         case 1: Controller.Screen.print("Mode: FULL ARCADE "); break;
       }
-    }
-
-    // 摇杆曲线设置
-    if (LEFT && !last_LEFT) { // LEFT键：切换摇杆曲线
-      stick_curve++;
-      stick_curve = stick_curve % NUM_STICKCURVE;
-      Controller.rumble("."); // 一个短促的点震动
-      Controller.Screen.setCursor(5, 1);
-      Controller.Screen.print("%19s", "Stick Curve: %2f", stick_curve + 1);
     }
     
     // 系统/调试功能
