@@ -13,7 +13,7 @@ using namespace vex;
 
 competition Competition;
 
-static int auton_strategy = 0; // 0 代表左侧场地，1 代表右侧场地
+static int auton_strategy = 1; // 0 代表左侧场地，1 代表右侧场地
 const float turn_sensitivity = 0.5; // 转向灵敏度
 const int GEAR_SPEEDS[] = {10, 40, 70, 100}; // 定义四个档位各自对应的最大速度百分比
 const int NUM_GEARS = 4; // 定义档位的总数
@@ -51,14 +51,6 @@ void drivercontrol(void) {
 
   // 锁头
   float locked_heading = 0.0;
-
-  // 在手柄屏幕上初始化显示信息
-  Controller.Screen.setCursor(2, 1);
-  Controller.Screen.print("Mode: SPLIT ARCADE"); // 默认模式显示
-  Controller.Screen.setCursor(3, 1);
-  Controller.Screen.print("Drive: NORMAL  "); // 默认行驶方向显示
-  Controller.Screen.setCursor(4, 1);
-  Controller.Screen.print("Speed: MEDIUM(70%%)"); // 默认档位显示
 
   while (true) {
     // 在每次循环开始时，声明左右轮的最终动力变量
@@ -145,21 +137,19 @@ void drivercontrol(void) {
     intake_offset = intake_offset % 360;
     if (R1) { // R1键：吸球
       spinIntaker1(100); 
-      spinIntaker2(100); 
     }
     else if (R2) { // R2键：吐球
       spinIntaker1(-100); 
       spinIntaker2(-100); 
     }
     else if (L1) { // L1键：上层得分动作
-      piston_up_state = 1; 
       spinIntaker1(100); 
-      spinIntaker2(-100); 
+      spinIntaker2(100); 
       spinChange(100); 
     }
     else if (L2) { // L2键：中层得分动作
       spinIntaker1(100); 
-      spinIntaker2(-100); 
+      spinIntaker2(100); 
       spinChange(-100); 
     }
     else { // 无按键：停止所有相关电机
@@ -189,7 +179,7 @@ void drivercontrol(void) {
     if (Y && !last_Y) {
       is_reversed = !is_reversed; // 翻转方向状态
       Controller.rumble("."); // 一个短促的点震动
-      Controller.Screen.setCursor(3, 1); // 设置光标位置
+      Controller.Screen.setCursor(2, 1); // 设置光标位置
       if (is_reversed) 
         Controller.Screen.print("Drive: REVERSED"); // 显示反向模式
       else 
@@ -210,7 +200,7 @@ void drivercontrol(void) {
     // 如果档位发生了变化，则更新手柄屏幕
     if (gear_changed) {
       Controller.rumble("."); // 一个短促的点震动
-      Controller.Screen.setCursor(4, 1);
+      Controller.Screen.setCursor(2, 1);
       switch (speed_gear) {
         case 0: Controller.Screen.print("Speed: LOW   (%d%%)", GEAR_SPEEDS[0]); break;
         case 1: Controller.Screen.print("Speed: MEDIUM(%d%%)", GEAR_SPEEDS[1]); break;
@@ -233,26 +223,28 @@ void drivercontrol(void) {
     
     // 系统/调试功能
     if (LEFT && RIGHT){ // 同时按 LEFT 和 RIGHT：测试自动程序
-      Controller.rumble("."); // 一个短促的点震动
-      Controller.Screen.setCursor(5, 1);
+      Controller.rumble("--"); // 长震动
+      Controller.Screen.setCursor(2, 1);
       Controller.Screen.print("%19s", "Test Autonomous");
       autonomous();
     }
 
     if (LEFT && A) { // 同时按 LEFT 和 A：校准IMU
+      Controller.Screen.setCursor(2, 1);
+      Controller.Screen.print("%19s", "Set IMU!");
       IMU.startCalibration();
       while (IMU.isCalibrating()) 
         this_thread::sleep_for(5);
-      Controller.rumble("."); // 一个短促的点震动
-      Controller.Screen.setCursor(5, 1);
+      Controller.rumble("--"); // 长震动
+      Controller.Screen.setCursor(2, 1);
       Controller.Screen.print("%19s", "IMU Ready!");
     }
 
     if (LEFT && A1 > 80) { // 同时按 LEFT 和推动右摇杆：选择自动赛策略
       this_thread::sleep_for(300);
       auton_strategy = (auton_strategy + 1) % 2;
-      Controller.rumble("."); // 一个短促的点震动
-      Controller.Screen.setCursor(5, 1);
+      Controller.rumble("--"); // 长震动
+      Controller.Screen.setCursor(2, 1);
       if (auton_strategy == 0) 
         Controller.Screen.print("%12s", "left");
       else 
