@@ -12,6 +12,7 @@
 using namespace vex;
 
 competition Competition;
+Autonomous Auton; // 创建一个Autonomous类的实例
 
 static int auton_strategy = 1; // 0 代表左侧场地，1 代表右侧场地
 const float turn_sensitivity = 0.5; // 转向灵敏度
@@ -24,10 +25,10 @@ const int NUM_CONTROL_MODES = 2; // 定义总共有两种控制模式
 void autonomous(void) {
   switch (auton_strategy) {
     case 0:
-      auton_left();
+      Auton.pid_left();
       break;
     case 1:
-      auton_right();
+      Auton.pid_right();
       break;
   }
 }

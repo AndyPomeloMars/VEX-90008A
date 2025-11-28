@@ -1,14 +1,19 @@
-#ifndef AUTONOMOUS_H_
-#define AUTONOMOUS_H_
+#ifndef AUTONOMOUS_H
+#define AUTONOMOUS_H
 
-void auton_init(void);
-void auton_pre_usercontrol(void);
+#include "vex.h"
+#include "timer.h"
 
-void auton_skill(void);
-void auton_left();
-void auton_right();
-void auton_plus_a(bool _mirror_flag, bool is_elimination=0);
-void auton_minus_a(bool _mirror_flag);
-void auton_alliance();
+class Autonomous {
+    public:
+      Autonomous();
+      void pid_left(void);
+      void pid_right(void);
+
+    private:
+      MyTimer auton_timer;
+      void init(void);
+      void pre_usercontrol(void);
+};
 
 #endif

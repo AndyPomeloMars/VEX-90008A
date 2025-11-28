@@ -5,118 +5,121 @@
 #include "timer.h"
 #include "robot-config.h"
 
-// 创建一个静态的计时器实例，专门用于自动阶段计时
-static auto auton_timer = MyTimer();
+class Autonomous {
+  public:
+    // 构造函数
+    Autonomous() {}
 
-void auton_init(void) {
-  resetForwardPos(); // 初始化/重置底盘的前进位置编码器读数
-  auton_timer.reset(); // 重置自动阶段的计时器
-}
+    void pid_left() {
+      init();
+      this_thread::sleep_for(50);
+      
+      spinIntaker1(100);//进球滚轮开始转动
+      posForwardAbs(40, 100);//快速接近3q球
 
-// 自动阶段结束，进入手动阶段前的准备函数
-// 用于将所有电机和气缸恢复到安全或初始状态，并打印自动阶段的耗时。
-void auton_pre_usercontrol(void) {
-  // 停止所有可能在自动赛中运行的电机
-  spinIntaker1(0); // 停止进球电机1
-  spinChange(0); // 停止传送/翻转电机
+      pidRotateAbs(-45);//转动车头指向45度方向
+    
+      posForwardAbs(30, 260);//慢速吸3球
+      this_thread::sleep_for(200);//等待0.2s,吸球
+      setPistonFront(true);//前方活塞伸出，抱球
+      this_thread::sleep_for(150);//等待0.2s,吸球
+      spinIntaker1(0);//进球滚轮停止转动
 
-  // 将所有气缸收回
-  setPistonUp(false);
-  setPistonFront(false);
-  setPistonDown(false);
+    
+      pidRotateAbs(-135);//对准导入桶
+      posForwardAbs(40, -320);//后退到中桥         这个距离就是x到中桥的距离
+      timerForward(-10,200);//后退压到桥
+      spinChange(-100);
+      this_thread::sleep_for(100);
+      spinChange(0);
 
-  // 在V5大脑屏幕上打印自动程序总耗时
-  Brain.Screen.setCursor(8, 1);
-  Brain.Screen.print("AutonTimer: %2.2fsec", auton_timer.getTime() / 1000.0);
-}
+      spinIntaker1(100);//进球滚轮开始转动
+      pidRotateAbs(-130);//对准导入桶
+      //softStartTimerForward(0, 40, 150 );//软起动0-40，
+      posForwardAbs(40, 870);//前进到导入桶          这个距离就是x到导入桶的距离
+      pidRotateAbs(-180);//对准导入桶
+      //posForwardAbs(40, 60);
+      //timerForward(40,1400);
 
-// 技能赛自动程序 (目前为空)
-// 这是为VEX机器人技能挑战赛准备的60秒自动程序。
-void auton_skill(void) {
-  auton_init();
-  auton_pre_usercontrol();
-}
+      //posForwardAbs(40, -300);//后退到高桥
+      posForwardAbs(40, -300);//后退到高桥
+      timerForward(-30,400);
+      spinIntaker1(100);
+      spinIntaker2(100);
+      spinChange(100);
+      this_thread::sleep_for(1500);
 
-// 左侧场地自动程序
-// 这是一个完整的15秒自动赛流程，设计用于从场地左侧开始。
-void auton_left() {
-  auton_init(); // 初始化位置和计时器
-  this_thread::sleep_for(50);
+      posForwardAbs(30, 150);
+      pidRotateAbs(-225);
+      posForwardAbs(30, -175);
+      pidRotateAbs(-180);
+      posForwardAbs(30, -200);
+      posForwardAbs(100, -100);
 
-  softStartTimerForward(0, 40, 150);
-  posForwardAbs(40, 125);
-  pidRotateAbs(-45);
-  
-  softStartTimerForward(0, 40, 150);
-  spinIntaker1(100);
-  posForwardAbs(40, 400);
-  this_thread::sleep_for(200);
-  
-  // --- 结束 ---
-  auton_pre_usercontrol(); // 恢复机器人状态
-  return;
-}
+      pre_usercontrol();
+      return;
+    }
 
-void auton_right() {
-  auton_init();
-  this_thread::sleep_for(50);
+    void pid_right() {
+      init();
+      this_thread::sleep_for(50);
 
-  softStartTimerForward(0, 40, 150);
-  posForwardAbs(40, 170);
-  pidRotateAbs(45);
-  
-  softStartTimerForward(0, 30, 150);
-  spinIntaker1(100);
-  posForwardAbs(30, 275);
-  this_thread::sleep_for(500);
+      posForwardAbs(30, 165);
+      pidRotateAbs(45);
+      this_thread::sleep_for(100);
 
-  pidRotateAbs(135);
-  softStartTimerForward(0, 40, 150);
-  spinIntaker1(100);
-  posForwardAbs(30, 645); // 655
+      spinIntaker1(100);
+      posForwardAbs(30, 300);
+      setPistonFront(true);
+      this_thread::sleep_for(750);
 
-  setPistonFront(true);
-  this_thread::sleep_for(300);
-  pidRotateAbs(-180);
-  softStartTimerForward(0, 40, 150);
-  spinIntaker1(100);
-  timerForward(40, 280);
+      pidRotateAbs(135);
+      spinIntaker1(100);
+      posForwardAbs(30, 520);
 
-  for (int i = 0; i < 3; i++) {
-    timerForward(-20, 175);          // 后退
-    this_thread::sleep_for(50);
-    timerForward(30, 200);           // 前进
-    this_thread::sleep_for(50);
-  }
+      pidRotateAbs(-180);
+      timerForward(-30, 800);
 
-  // this_thread::sleep_for(2000);
+      spinIntaker1(100);
+      spinIntaker2(100);
+      spinChange(100); 
+      this_thread::sleep_for(2500);
 
-  setPistonFront(false);
+      posForwardAbs(30, 150);
 
-  softStartTimerForward(0, 40, 150);
-  softStartTimerForward(0, 40, 150);
-  timerForward(-40, 750);
+      pidRotateAbs(-225);
+      posForwardAbs(30, -235); 
+      pidRotateAbs(-180);
+      timerForward(-30, 800); 
+      
+      // --- 结束 ---
+      pre_usercontrol(); // 调用函数恢复机器人所有部件到初始状态
+      return;
+    }
 
-  spinIntaker1(100); 
-  spinIntaker2(100);
-  spinChange(100); 
-  this_thread::sleep_for(2000);
+  private:
+    // 自动阶段的计时器实例
+    MyTimer auton_timer;
 
-  posForwardAbs(30, 150);
+    void init(void) {
+      resetForwardPos(); // 初始化/重置底盘的前进位置编码器读数
+      auton_timer.reset(); // 重置自动阶段的计时器
+    }
 
-  pidRotateAbs(-225);
-  posForwardAbs(30, -240); 
-  pidRotateAbs(-180);
-  timerForward(-30, 800); 
-  
-  // --- 结束 ---
-  auton_pre_usercontrol(); // 调用函数恢复机器人所有部件到初始状态
-  return;
-}
+    // 自动阶段结束，进入手动阶段前的准备函数
+    // 用于将所有电机和气缸恢复到安全或初始状态，并打印自动阶段的耗时。
+    void pre_usercontrol(void) {
+      // 停止所有可能在自动赛中运行的电机
+      spinIntaker1(0); // 停止进球电机1
+      spinChange(0); // 停止传送/翻转电机
 
-// 联盟赛自动程序 (目前为空)
-// 可能用于与联盟伙伴配合的特殊自动程序。
-void auton_alliance() {
-  MyTimer timer;
-  timer.reset();
-}
+      // 将所有气缸收回
+      setPistonUp(false);
+      setPistonFront(false);
+      setPistonDown(false);
+
+      // 在V5大脑屏幕上打印自动程序总耗时
+      Brain.Screen.setCursor(8, 1);
+      Brain.Screen.print("AutonTimer: %2.2fsec", auton_timer.getTime() / 1000.0);
+    }
+};
