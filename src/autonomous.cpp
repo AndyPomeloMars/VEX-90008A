@@ -15,11 +15,11 @@ class Autonomous {
       this_thread::sleep_for(50);
       
       spinIntaker1(100);//进球滚轮开始转动
-      posForwardAbs(40, 100);//快速接近3q球
+      pidForwardAbs(40, 100);//快速接近3q球
 
       pidRotateAbs(-45);//转动车头指向45度方向
     
-      posForwardAbs(30, 260);//慢速吸3球
+      pidForwardAbs(30, 260);//慢速吸3球
       this_thread::sleep_for(200);//等待0.2s,吸球
       setPistonFront(true);//前方活塞伸出，抱球
       this_thread::sleep_for(150);//等待0.2s,吸球
@@ -27,7 +27,7 @@ class Autonomous {
 
     
       pidRotateAbs(-135);//对准导入桶
-      posForwardAbs(40, -320);//后退到中桥         这个距离就是x到中桥的距离
+      pidForwardAbs(40, -320);//后退到中桥         这个距离就是x到中桥的距离
       timerForward(-10,200);//后退压到桥
       spinChange(-100);
       this_thread::sleep_for(100);
@@ -36,25 +36,25 @@ class Autonomous {
       spinIntaker1(100);//进球滚轮开始转动
       pidRotateAbs(-130);//对准导入桶
       //softStartTimerForward(0, 40, 150 );//软起动0-40，
-      posForwardAbs(40, 870);//前进到导入桶          这个距离就是x到导入桶的距离
+      pidForwardAbs(40, 870);//前进到导入桶          这个距离就是x到导入桶的距离
       pidRotateAbs(-180);//对准导入桶
-      //posForwardAbs(40, 60);
+      //pidForwardAbs(40, 60);
       //timerForward(40,1400);
 
-      //posForwardAbs(40, -300);//后退到高桥
-      posForwardAbs(40, -300);//后退到高桥
+      //pidForwardAbs(40, -300);//后退到高桥
+      pidForwardAbs(40, -300);//后退到高桥
       timerForward(-30,400);
       spinIntaker1(100);
       spinIntaker2(100);
       spinChange(100);
       this_thread::sleep_for(1500);
 
-      posForwardAbs(30, 150);
+      pidForwardAbs(30, 150);
       pidRotateAbs(-225);
-      posForwardAbs(30, -175);
+      pidForwardAbs(30, -175);
       pidRotateAbs(-180);
-      posForwardAbs(30, -200);
-      posForwardAbs(100, -100);
+      pidForwardAbs(30, -200);
+      pidForwardAbs(100, -100);
 
       pre_usercontrol();
       return;
@@ -64,18 +64,18 @@ class Autonomous {
       init();
       this_thread::sleep_for(50);
 
-      posForwardAbs(30, 165);
+      pidForwardAbs(30, 165);
       pidRotateAbs(45);
       this_thread::sleep_for(100);
 
       spinIntaker1(100);
-      posForwardAbs(30, 300);
+      pidForwardAbs(30, 300);
       setPistonFront(true);
       this_thread::sleep_for(750);
 
       pidRotateAbs(135);
       spinIntaker1(100);
-      posForwardAbs(30, 520);
+      pidForwardAbs(30, 520);
 
       pidRotateAbs(-180);
       timerForward(-30, 800);
@@ -85,10 +85,10 @@ class Autonomous {
       spinChange(100); 
       this_thread::sleep_for(2500);
 
-      posForwardAbs(30, 150);
+      pidForwardAbs(30, 150);
 
       pidRotateAbs(-225);
-      posForwardAbs(30, -235); 
+      pidForwardAbs(30, -235); 
       pidRotateAbs(-180);
       timerForward(-30, 800); 
       

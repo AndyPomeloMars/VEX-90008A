@@ -2,6 +2,7 @@
 #include "differential-base.h"
 #include "robot-config.h"
 #include "change-1DOF.h"
+#include "controller.h"
 #include "vex.h"
 
 #define resetHeading() IMU.resetRotation()
@@ -176,8 +177,6 @@ void tuning_rotate_d() {
   }
 }
 
-
-#include "controller.h"
 void fastTuningRotatePD() {
     static float kp = 2.6, kd = 18;
     const float pid_tuning_unit = 0.2;
